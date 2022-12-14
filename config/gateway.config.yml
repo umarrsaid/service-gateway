@@ -1,0 +1,142 @@
+http:
+  port: ${HTTP_PORT:-8080}
+admin:
+  port: 9876
+  host: 127.0.0.1
+apiEndpoints:
+  account:
+    host: '*'
+    paths: '/account/*'
+  helper:
+    host: '*'
+    paths: '/helper/*'
+  wallet:
+    host: '*'
+    paths: '/wallet/*'
+  walletHook:
+    host: '*'
+    paths: '/wallet-hook/*'
+serviceEndpoints:
+  httpbin:
+    url: 'https://httpbin.org'
+  accountService:
+    url: ${ACCOUNT_URL:-'127.0.0.1:3000'}
+  helperService:
+    url: ${HELPER_URL:-'127.0.0.1:3000'}
+  walletService:
+    url: ${WALLET_URL:-'127.0.0.1:3000'}
+  walletHookService:
+    url: ${WALLET_URL:-'127.0.0.1:3000'}
+policies:
+  - log
+  - proxy
+  - jwt
+  - request-transformer
+  - cors
+  - auth
+  - rate-limit
+  - errors
+pipelines:
+  accountPipeline:
+    apiEndpoints:
+      - account
+    policies:
+    # Uncomment `key-auth:` when instructed to in the Getting Started guide.
+    # - key-auth:
+      - log:
+          action:
+            message: 'account ${req.method}'
+      - proxy:
+          - action:
+              serviceEndpoint: accountService
+              changeOrigin: true
+      - errors:
+        - action:
+          template: '{ "status": "$status", "message": "$message" }'
+          defaults:
+            status: NOK
+            message: Internal Server Error
+          messages:
+            Internal Server Error: Oops... Please try again
+            Validation Error: Some fields have validation errors
+  helperPipeline:
+    apiEndpoints:
+      - helper
+    policies:
+    # Uncomment `key-auth:` when instructed to in the Getting Started guide.
+    # - key-auth:
+      - log:
+          action:
+            message: 'helper ${req.method} header===> ${req.headers.user}'
+      - auth: null
+      - request-transformer:
+        - action:
+            headers:
+              add:
+                user: req.headers.user
+      - errors:
+        - action:
+          template: '{ "status": "$status", "message": "$message" }'
+          defaults:
+            status: NOK
+            message: Internal Server Error
+          messages:
+            Internal Server Error: Oops... Please try again
+            Validation Error: Some fields have validation errors
+      - proxy:
+          - action:
+              serviceEndpoint: helperService
+              changeOrigin: true
+  walletPipeline:
+    apiEndpoints:
+      - wallet
+    policies:
+    # Uncomment `key-auth:` when instructed to in the Getting Started guide.
+    # - key-auth:
+      - log:
+          action:
+            message: 'wallet ${req.method} header===> ${req.headers.user}'
+      - auth: null
+      - request-transformer:
+        - action:
+            headers:
+              add:
+                user: req.headers.user
+            body:
+              add:
+                data: req.headers.data
+      - errors:
+        - action:
+          template: '{ "status": "$status", "message": "$message" }'
+          defaults:
+            status: NOK
+            message: Internal Server Error
+          messages:
+            Internal Server Error: Oops... Please try again
+            Validation Error: Some fields have validation errors
+      - proxy:
+          - action:
+              serviceEndpoint: walletService
+              changeOrigin: true
+  walletHookPipeline:
+    apiEndpoints:
+      - walletHook
+    policies:
+    # Uncomment `key-auth:` when instructed to in the Getting Started guide.
+    # - key-auth:
+      - log:
+          action:
+            message: 'walletHook ${req.method} header===> ${req.headers.user}'
+      - errors:
+        - action:
+          template: '{ "status": "$status", "message": "$message" }'
+          defaults:
+            status: NOK
+            message: Internal Server Error
+          messages:
+            Internal Server Error: Oops... Please try again
+            Validation Error: Some fields have validation errors
+      - proxy:
+          - action:
+              serviceEndpoint: walletHookService
+              changeOrigin: true
